@@ -27,14 +27,12 @@ const io = new Server(server, {
 
 const defaultValue = "";
 io.on("connection", (socket) => {
-  console.log("a user connected");
   socket.on("get-document", async ({ id, userId, title }) => {
     const document = await findOrCreateDocument({ id, userId, title });
     socket.join(id);
-    console.log(document.title, "document");
+    //console.log(document.title, "document");
     socket.emit("load-document", document);
     socket.on("send-changes", (delta) => {
-      console.log("message: " + JSON.stringify(delta.ops));
       socket.broadcast.to(id).emit("receive-changes", delta);
     });
     socket.on("save-document", async ({ data, title }) => {
@@ -42,6 +40,43 @@ io.on("connection", (socket) => {
       await Document.findByIdAndUpdate(id, { data, title });
     });
   });
+
+  socket.on("initial_data", async (id) => {
+    const data = await Document.find({ userId: id });
+
+    socket.emit("get_data", data);
+    // Document.findById(id).then((docs) => {
+    //   // io.sockets.emit("get_data", docs);
+    //   console.log(id, "id");
+    //   console.log("docs", docs);
+    //   socket.emit("get_data", docs);
+    // });
+  });
+
+  socket.on("delete", (docId) => {
+    Document.findByIdAndDelete(docId).then((docs) => {
+      socket.emit("change_data");
+    });
+  });
+
+  // socket.on("on-docs", async (userId, type, id) => {
+  //   //socket.join(userId);
+  //   if (type === "get") {
+  //     const data = await getDocs(userId);
+  //     console.log(data);
+  //     socket.emit("get-docs", data);
+  //   }
+
+  //   if (type === "delete") {
+  //     if (id !== null) return;
+  //     socket.on("delete", async () => {
+  //       await deleteDocs(id);
+  //       const data = await getDocs(userId);
+  //       console.log(data);
+  //       socket.emit("get-docs", data);
+  //     });
+  //   }
+  // });
 });
 
 async function findOrCreateDocument({ id, userId, title }) {
@@ -62,6 +97,19 @@ app.get("/doc/:userId", async (req, res) => {
   res.json(docs);
 });
 
+async function getDocs(userId) {
+  if (userId == null) return;
+
+  const docs = await Document.find({ userId: userId });
+  return docs;
+}
+
+async function deleteDocs(id) {
+  if (id == null) return;
+
+  await Document.findByIdAndDelete(id);
+}
+
 app.delete("/doc/:id", async (req, res) => {
   const { id } = req.params;
   if (id == null) return;
@@ -69,6 +117,10 @@ app.delete("/doc/:id", async (req, res) => {
   await Document.findByIdAndDelete(id);
 
   res.json({ status: "ok" });
+});
+
+Document.watch().on("change", (change) => {
+  console.log(change);
 });
 
 server.listen(3001, () => {
