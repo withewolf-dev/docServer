@@ -25,6 +25,10 @@ const io = new Server(server, {
   },
 });
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
 const defaultValue = "";
 io.on("connection", (socket) => {
   socket.on("get-document", async ({ id, userId, title }) => {
@@ -123,6 +127,6 @@ Document.watch().on("change", (change) => {
   console.log(change);
 });
 
-server.listen(3001, () => {
+server.listen(process.env.PORT || 3001, () => {
   console.log("listening on *:3001");
 });
